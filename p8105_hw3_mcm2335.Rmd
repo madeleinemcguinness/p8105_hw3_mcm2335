@@ -45,13 +45,11 @@ data("instacart")
 
 instacart = instacart |>
   as_tibble()
+
+##was not able to fully complete due to time constraints with illness
 ```
 
 This dataset contains `r nrow(instacart)` rows and `r ncol(instacart)` columns. Each row represents a product from an individual order. There are variables descriping the item itself, product name, aisle ID, aisle, department ID, and department, and variables describing the order, including the day of order, days since order, and hour of day.  
-## Data Tidying
-```{r}
-
-```
 
 # Problem 2
 
@@ -74,16 +72,20 @@ brfss_smart2010 <- brfss_smart2010 |>
   filter(response == "Excellent" | response == "Very good" | response == "Good" | response == "Fair" | response == "Poor") |>
   mutate(response = factor(response, levels = c("Poor", "Fair", "Good", "Very good", "Excellent")))
 ```
+
 ## Data Visualization
+
 ```{r}
 distinct_counties <- brfss_smart2010 |>
   group_by(state, year) |>
   summarise(n_counties = n_distinct(county)) |>
   filter(year == 2010) |>
   filter(n_counties >= 7) 
+```
 
-# 6 states were observed at 7 or more locations in 2002, and 14 were observed at 7 or more locations in 2010
+6 states were observed at 7 or more locations in 2002, and 14 were observed at 7 or more locations in 2010
 
+```{r}
 excellent <- brfss_smart2010 |>
   filter(response == "Excellent") |>
   group_by(state, year, response) |>
@@ -94,9 +96,11 @@ excellent_plot <- excellent |>
   geom_line()
 
 print(excellent_plot)
+```
 
-# the mean data value for excellent responses appears to be relatively consistent for all states across the 2002-2010 time period, with mean data values on average falling between 15 and 30.
+The mean data value for excellent responses appears to be relatively consistent for all states across the 2002-2010 time period, with mean data values on average falling between 15 and 30.
 
+```{r}
 ny <- brfss_smart2010 |>
   filter(state == "NY") |>
   filter(year == 2006 | year == 2010) |>
@@ -109,9 +113,10 @@ ny_plot <- ny |>
   facet_grid(~year)
 
 print(ny_plot)
-
-#the distribution in mean data value for poor-excellent health appears to be pretty similar across the different New York counties in 2006 and 2010, with potentially slightly more variation in 2010.
 ```
+
+The distribution in mean data value for poor-excellent health appears to be pretty similar across the different New York counties in 2006 and 2010, with potentially slightly more variation in 2010.
+
 # Problem 3
 
 ## Data Import and Tidying 
@@ -147,9 +152,21 @@ count_gender <- nhanes_accel_grouped |>
   knitr::kable(digits = 2)
 
 print(count_gender)
+```
 
-# there are 28 females and 27 males in the less than high school group, 23 females and 35 males in the high school equivalent group, and 59 females and 56 males in the more than high school group
+There are 28 females and 27 males in the less than high school group, 23 females and 35 males in the high school equivalent group, and 59 females and 56 males in the more than high school group
 
+```{r}
+age_distribution <- ggplot(merged_nhanes, aes(x = age, color = sex)) +
+  geom_histogram() +
+  facet_grid(~education)
+
+print (age_distribution)
+```
+
+The above histogram shoes the age distribution of the dataset by gender for each education level. It appears as if there are generally more females than males for most ages across all education levels. It also appears that there is a larger distribution of younger adults in the more than high school group for both genders than in the other two education levels.
+
+```{r}
 plot_activity <- merged_nhanes |>
   group_by(seqn, age, sex, education) |>
   summarise(mean_activityscore = mean(activity_data, na.rm = TRUE)) |>
@@ -159,9 +176,11 @@ plot_activity <- merged_nhanes |>
   facet_grid(~education)
 
 print(plot_activity)
+```
 
-# activity tends to decrease as age increases for both men and women across each education category. Female activity levels are higher than men at all ages in the high school equivalent and more than high school groups, and are higher in the less than high school group until around age 40, at which men's activity levels remain consistently above women. The rate at which activity declines across age varies for each education level, but at age 80, mean activity levels are similar for both sexes across all education levels.
+Activity tends to decrease as age increases for both men and women across each education category. Female activity levels are higher than men at all ages in the high school equivalent and more than high school groups, and are higher in the less than high school group until around age 40, at which men's activity levels remain consistently above women. The rate at which activity declines across age varies for each education level, but at age 80, mean activity levels are similar for both sexes across all education levels.
 
+```{r}
 activity_24hr <- merged_nhanes |>
   mutate(minute = factor(minute, levels = unique(minute))) |>
   ggplot(aes(x = minute, y = activity_data, color = sex)) +
@@ -170,7 +189,8 @@ activity_24hr <- merged_nhanes |>
   facet_grid(~education)
 
 print(activity_24hr)
+```
 
-#although it is difficult to parse the trends in this graph, it appears that activity levels across the 24 hour time period are lowest at the beginning of the day and peak towards the middle of the day for both males and females in the less than high school and high school equivalent groups, with similar activity levels across both education groups and genders. The trends are different in the more than high school group, where activity peaks for men closer towards the morning or early afternoon, and peaks for women closer towards the evening. 
+Although it is difficult to parse the trends in this graph, it appears that activity levels across the 24 hour time period are lowest at the beginning of the day and peak towards the middle of the day for both males and females in the less than high school and high school equivalent groups, with similar activity levels across both education groups and genders. The trends are different in the more than high school group, where activity peaks for men closer towards the morning or early afternoon, and peaks for women closer towards the evening. 
   
 ```
