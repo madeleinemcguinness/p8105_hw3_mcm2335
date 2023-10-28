@@ -3,6 +3,8 @@ title: "p8105_hw3_mcm2335"
 author: "Madeleine McGuinness"
 date: "2023-10-27"
 output: github_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -10,6 +12,28 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library("p8105.datasets")
 library("tidyverse")
+library("ggridges")
+library("patchwork")
+library("Hmisc")
+library("janitor")
+
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
 ```
 
 # Problem 1
@@ -19,14 +43,134 @@ library("tidyverse")
 ```{r}
 data("instacart")
 
+instacart = instacart |>
+  as_tibble()
+```
+
+This dataset contains `r nrow(instacart)` rows and `r ncol(instacart)` columns. Each row represents a product from an individual order. There are variables descriping the item itself, product name, aisle ID, aisle, department ID, and department, and variables describing the order, including the day of order, days since order, and hour of day.  
+## Data Tidying
+```{r}
+
 ```
 
 # Problem 2
 
-## Data Import
+## Data Import & Tidying
 
 ```{r}
 data("brfss_smart2010")
+
+brfss_smart2010 <- brfss_smart2010 |>
+  as_tibble()
+
+class(brfss_smart2010)
+
+brfss_smart2010 <- brfss_smart2010 |>
+  janitor::clean_names() |>
+  rename(state = locationabbr,
+         county = locationdesc) |>
+  select(year, state, county, class, topic, question, response, data_value) |>
+  filter(topic == "Overall Health") |>
+  filter(response == "Excellent" | response == "Very good" | response == "Good" | response == "Fair" | response == "Poor") |>
+  mutate(response = factor(response, levels = c("Poor", "Fair", "Good", "Very good", "Excellent")))
+```
+## Data Visualization
+```{r}
+distinct_counties <- brfss_smart2010 |>
+  group_by(state, year) |>
+  summarise(n_counties = n_distinct(county)) |>
+  filter(year == 2010) |>
+  filter(n_counties >= 7) 
+
+# 6 states were observed at 7 or more locations in 2002, and 14 were observed at 7 or more locations in 2010
+
+excellent <- brfss_smart2010 |>
+  filter(response == "Excellent") |>
+  group_by(state, year, response) |>
+  summarise(mean_datavalue = mean(data_value, na.rm = TRUE))
+
+excellent_plot <- excellent |>
+  ggplot(aes(x = year, y = mean_datavalue, color = state)) +
+  geom_line()
+
+print(excellent_plot)
+
+# the mean data value for excellent responses appears to be relatively consistent for all states across the 2002-2010 time period, with mean data values on average falling between 15 and 30.
+
+ny <- brfss_smart2010 |>
+  filter(state == "NY") |>
+  filter(year == 2006 | year == 2010) |>
+  group_by(county, year, response) |>
+  summarise(mean_datavalue = mean(data_value, na.rm = TRUE))
+  
+ny_plot <- ny |>
+  ggplot(aes(x = response, y = mean_datavalue, color = county )) +
+  geom_point() +
+  facet_grid(~year)
+
+print(ny_plot)
+
+#the distribution in mean data value for poor-excellent health appears to be pretty similar across the different New York counties in 2006 and 2010, with potentially slightly more variation in 2010.
+```
+# Problem 3
+
+## Data Import and Tidying 
+
+```{r}
+nhanes_covar <- read_csv("./data/nhanes_covar.csv", skip = 4) |>
+  janitor::clean_names() |>
+  drop_na() |>
+  filter(age >= 21) |>
+  mutate(sex = if_else(sex == 1, "Male", "Female")) |>
+  mutate(education = if_else(education == 1, "Less than high school", if_else(education == 2, "High school equivalent", "More than high school"))) |>
+  mutate(education = factor(education, levels = c("Less than high school", "High school equivalent", "More than high school")))
+
+nhanes_accel <- read_csv("./data/nhanes_accel.csv") |>
+  janitor::clean_names() |>
+  pivot_longer(min1:min1440,
+               names_to = "minute",
+               values_to = "activity_data")
+
+merged_nhanes <- left_join(nhanes_covar, nhanes_accel, by = "seqn")
+
+nhanes_accel_grouped <- merged_nhanes |>
+  group_by(seqn, education, sex) |>
+  summarise(mean_activityscore = mean(activity_data, na.rm = TRUE))
 ```
 
-# Problem 3
+## Data Visualization
+
+```{r}
+count_gender <- nhanes_accel_grouped |>
+  group_by(education) |>
+  count(sex) |>
+  knitr::kable(digits = 2)
+
+print(count_gender)
+
+# there are 28 females and 27 males in the less than high school group, 23 females and 35 males in the high school equivalent group, and 59 females and 56 males in the more than high school group
+
+plot_activity <- merged_nhanes |>
+  group_by(seqn, age, sex, education) |>
+  summarise(mean_activityscore = mean(activity_data, na.rm = TRUE)) |>
+  ggplot(aes(x = age, y = mean_activityscore, color = sex )) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  facet_grid(~education)
+
+print(plot_activity)
+
+# activity tends to decrease as age increases for both men and women across each education category. Female activity levels are higher than men at all ages in the high school equivalent and more than high school groups, and are higher in the less than high school group until around age 40, at which men's activity levels remain consistently above women. The rate at which activity declines across age varies for each education level, but at age 80, mean activity levels are similar for both sexes across all education levels.
+
+activity_24hr <- merged_nhanes |>
+  mutate(minute = factor(minute, levels = unique(minute))) |>
+  ggplot(aes(x = minute, y = activity_data, color = sex)) +
+  geom_point(alpha = .5) + 
+  geom_smooth(se = FALSE) +
+  facet_grid(~education)
+
+print(activity_24hr)
+
+#although it is difficult to parse the trends in this graph, it appears that activity levels across the 24 hour time period are lowest at the beginning of the day and peak towards the middle of the day for both males and females in the less than high school and high school equivalent groups, with similar activity levels across both education groups and genders. The trends are different in the more than high school group, where activity peaks for men closer towards the morning or early afternoon, and peaks for women closer towards the evening. 
+  
+```
